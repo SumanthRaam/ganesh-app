@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users{% endblock %}
+{% block content %}
+<h2>Admin: Manage Users</h2>
+
+<form method="POST" class="mb-4">
+    <input type="hidden" name="action" value="add">
+    <div class="row g-2">
+        <div class="col"><input name="username" placeholder="New Username" class="form-control" required></div>
+        <div class="col"><input name="password" type="password" placeholder="Password" class="form-control" required></div>
+        <div class="col"><select name="role" class="form-control"><option value="user">User</option><option value="admin">Admin</option></select></div>
+        <div class="col"><button class="btn btn-success">Add User</button></div>
+    </div>
+</form>
+
+<form method="POST">
+    <input type="hidden" name="action" value="delete">
+    <div class="row g-2">
+        <div class="col"><input name="username" placeholder="Username to delete" class="form-control" required></div>
+        <div class="col"><button class="btn btn-danger">Delete User</button></div>
+    </div>
+</form>
+
+<h4 class="mt-4">Current Users:</h4>
+<ul>
+    {% for uname, info in users.items() %}
+        <li>{{ uname }} ({{ info.role }})</li>
+    {% endfor %}
+</ul>
+{% endblock %}
