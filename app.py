@@ -3,7 +3,6 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
 import os
 import json
 from dotenv import load_dotenv
@@ -14,9 +13,16 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
 def get_google_sheets_client():
-    credentials_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE", "credentials.json")
+    # Load credentials from environment variable instead of using a file
+    credentials_json = os.getenv('GOOGLE_SHEETS_CREDENTIALS_JSON')
+    
+    if not credentials_json:
+        raise ValueError("Google Sheets credentials not found in environment variables.")
+    
+    credentials_dict = json.loads(credentials_json)
+    
     scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
     return gspread.authorize(credentials)
 
 try:
@@ -53,9 +59,9 @@ def get_users_from_sheet():
 def update_user_password(username, new_password_hash):
     sheet = client.open('Ganesh-Chaturthi-2025').worksheet('Users')
     records = sheet.get_all_records()
-    for idx, row in enumerate(records, start=2):
+    for idx, row in enumerate(records, start=2):  # 1-based index; row 1 is headers
         if row['Username'] == username:
-            sheet.update_cell(idx, 2, new_password_hash)
+            sheet.update_cell(idx, 2, new_password_hash)  # Column 2 = PasswordHash
             return True
     return False
 
@@ -86,52 +92,7 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if not client:
-        flash('Google Sheets service is not available.')
-        return redirect(url_for('home'))
-
-    try:
-        sheet = client.open('Ganesh-Chaturthi-2025').sheet1
-        records = sheet.get_all_records()
-        # Sort by timestamp or reverse the order to get most recent first
-        records.reverse()  # assuming newer entries are at the bottom
-        return render_template('dashboard.html', records=records, is_admin=current_user.role == 'admin')
-    except Exception as e:
-        app.logger.error(f"Error loading dashboard data: {str(e)}")
-        flash('Failed to load dashboard data.')
-        return redirect(url_for('home'))
-
-
-@app.route('/submit', methods=['GET', 'POST'])
-@login_required
-def submit():
-    if not client:
-        flash('Google Sheets service is not available.')
-        return redirect(url_for('dashboard'))
-
-    if request.method == 'POST':
-        try:
-            name = request.form['name']
-            address = request.form['address']
-            phone = request.form['phone']
-            amount = request.form['amount']
-            date = request.form['date']
-
-            sheet = client.open('Ganesh-Chaturthi-2025').sheet1
-            phone_numbers = sheet.col_values(3)
-            if phone in phone_numbers:
-                flash('Phone number already exists!')
-                return redirect(url_for('submit'))
-
-            sheet.append_row([name, address, phone, amount, date, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
-            flash('Data submitted successfully!')
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            app.logger.error(f"Submission error: {str(e)}")
-            flash(f"Error: {str(e)}")
-            return redirect(url_for('submit'))
-
-    return render_template('submit.html')
+    return render_template('dashboard.html', is_admin=current_user.role == 'admin')
 
 @app.route('/change_password', methods=['GET', 'POST'])
 @login_required
